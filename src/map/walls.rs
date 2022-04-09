@@ -2,7 +2,7 @@ use std::cmp::{max, min};
 
 use rand::{prelude::*, thread_rng, Rng};
 
-use crate::map::map_data::Tile;
+use crate::{components::store::ComponentStore, map::map_data::Tile};
 
 #[derive(Debug)]
 struct Room {
@@ -59,7 +59,7 @@ impl Walls {
         }
     }
 
-    pub fn gen(mut self) -> Vec<Tile> {
+    pub fn gen(mut self, store: &mut ComponentStore) -> Vec<Tile> {
         let mut rng = thread_rng();
 
         let mut rooms: Vec<Room> = Vec::new();
@@ -73,6 +73,8 @@ impl Walls {
             let x = rng.gen_range(1..(self.map_width - room_width - 1));
             let y = rng.gen_range(1..(self.map_height - room_height - 1));
 
+            println!("r {} {} {} {}", x, y, room_width, room_height);
+
             let room = Room::new(x, y, room_width, room_height);
 
             for r in &rooms {
@@ -85,6 +87,11 @@ impl Walls {
 
             if let Some(last_room) = rooms.last() {
                 self.carve_out_hallway(&mut rng, last_room, &room);
+            } else {
+                let (player_x, player_y) = room.center();
+
+                println!("p {} {} ", player_x, player_y);
+                store.make_player(player_x, player_y);
             }
 
             rooms.push(room);
@@ -94,8 +101,8 @@ impl Walls {
     }
 
     fn carve_out_room(&mut self, room: &Room) {
-        for x in room.x1..=room.x2 {
-            for y in room.y1..=room.y2 {
+        for y in room.y1..=room.y2 {
+            for x in room.x1..=room.x2 {
                 let index = x + (y * self.map_width);
 
                 self.map[index as usize] = Tile::Floor;

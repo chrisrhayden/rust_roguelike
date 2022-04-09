@@ -5,6 +5,7 @@ use sdl2::{
 
 use crate::{
     characters::Characters,
+    components::store::ComponentStore,
     map::map_data::{MapData, MapType, Tile},
     sdl::SDLData,
 };
@@ -28,6 +29,7 @@ pub struct Game {
     characters: Characters,
     sdl_data: SDLData,
     texture_path: String,
+    store: ComponentStore,
 }
 
 impl Game {
@@ -37,6 +39,7 @@ impl Game {
         window_height: u32,
         sdl_data: SDLData,
         characters: Characters,
+        store: ComponentStore,
     ) -> Self {
         Game {
             window_width,
@@ -45,6 +48,7 @@ impl Game {
             characters,
             state: GameLoopState::PlayerRun,
             texture_path: texture_path.into(),
+            store,
         }
     }
 
@@ -61,7 +65,12 @@ impl Game {
         let map_width = self.window_width / self.characters.width;
         let map_height = self.window_height / self.characters.height;
 
-        let map = MapData::new(map_width, map_height, MapType::Walls);
+        let map = MapData::new(
+            &mut self.store,
+            map_width,
+            map_height,
+            MapType::Walls,
+        );
 
         let mut evt_pump = self
             .sdl_data
@@ -150,6 +159,20 @@ impl Game {
                 current_column += 1;
                 x += char_w as i32;
             }
+        }
+
+        for (_id, repr) in self.store.repr.iter() {
+            let to_paint = self.characters.get_rect(repr.repr);
+
+            let x = (repr.x * char_w) as i32;
+            let y = (repr.y * char_h) as i32;
+
+            let brush = Rect::new(x, y, char_w, char_h);
+
+            self.sdl_data
+                .canvas
+                .copy(texture, Some(to_paint), Some(brush))
+                .expect("cant copy to canvas");
         }
     }
 }
