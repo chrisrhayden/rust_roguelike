@@ -1,0 +1,14 @@
+[package]
+name = "rust_roguelike"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+path = "src/bin/main.rs"
+name = "rust_roguelike"
+
+[dependencies]
+sdl2 = { version = "0.34.5", features = [ "image" ] }
+rand = "0.8.4"
