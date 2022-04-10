@@ -73,8 +73,6 @@ impl Walls {
             let x = rng.gen_range(1..(self.map_width - room_width - 1));
             let y = rng.gen_range(1..(self.map_height - room_height - 1));
 
-            println!("r {} {} {} {}", x, y, room_width, room_height);
-
             let room = Room::new(x, y, room_width, room_height);
 
             for r in &rooms {
@@ -90,7 +88,6 @@ impl Walls {
             } else {
                 let (player_x, player_y) = room.center();
 
-                println!("p {} {} ", player_x, player_y);
                 store.make_player(player_x, player_y);
             }
 

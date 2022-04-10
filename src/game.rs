@@ -6,10 +6,11 @@ use sdl2::{
 use crate::{
     characters::Characters,
     components::store::ComponentStore,
-    map::map_data::{MapData, MapType, Tile},
+    map::map_data::{MapData, MapType, Tile, ViewTile},
     sdl::SDLData,
 };
 
+#[allow(dead_code)]
 enum Action {
     Move,
     OpenMenu,
@@ -29,7 +30,6 @@ pub struct Game {
     characters: Characters,
     sdl_data: SDLData,
     texture_path: String,
-    store: ComponentStore,
 }
 
 impl Game {
@@ -39,7 +39,6 @@ impl Game {
         window_height: u32,
         sdl_data: SDLData,
         characters: Characters,
-        store: ComponentStore,
     ) -> Self {
         Game {
             window_width,
@@ -48,7 +47,6 @@ impl Game {
             characters,
             state: GameLoopState::PlayerRun,
             texture_path: texture_path.into(),
-            store,
         }
     }
 
@@ -65,12 +63,9 @@ impl Game {
         let map_width = self.window_width / self.characters.width;
         let map_height = self.window_height / self.characters.height;
 
-        let map = MapData::new(
-            &mut self.store,
-            map_width,
-            map_height,
-            MapType::Walls,
-        );
+        let mut store = ComponentStore::default();
+        let map =
+            MapData::new(&mut store, map_width, map_height, MapType::Walls);
 
         let mut evt_pump = self
             .sdl_data
@@ -98,7 +93,8 @@ impl Game {
 
             self.sdl_data.canvas.clear();
 
-            self.paint_map(&texture, &map);
+            self.tick(&map);
+            self.paint_map(&texture, &store, &map);
 
             self.sdl_data.canvas.present();
 
@@ -128,7 +124,30 @@ impl Game {
         Action::Nothing
     }
 
-    fn paint_map(&mut self, texture: &Texture, map: &MapData) {
+    fn tick(&mut self, map: &MapData) {
+        let mut view_map = Vec::with_capacity(map.tiles.len());
+
+        for t in &map.tiles {
+            if *t == Tile::Wall {
+                view_map.push(ViewTile {
+                    blocked: true,
+                    visible: false,
+                });
+            } else {
+                view_map.push(ViewTile {
+                    blocked: false,
+                    visible: false,
+                });
+            }
+        }
+    }
+
+    fn paint_map(
+        &mut self,
+        texture: &Texture,
+        store: &ComponentStore,
+        map: &MapData,
+    ) {
         let char_w = self.characters.width;
         let char_h = self.characters.height;
 
@@ -161,7 +180,7 @@ impl Game {
             }
         }
 
-        for (_id, repr) in self.store.repr.iter() {
+        for (_id, repr) in store.repr.iter() {
             let to_paint = self.characters.get_rect(repr.repr);
 
             let x = (repr.x * char_w) as i32;

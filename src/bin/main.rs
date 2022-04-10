@@ -14,18 +14,11 @@ fn main() {
 
     let sdl_data = SDLData::new(window_width, window_height);
 
+    // TODO: rename to sprites
     let tiles = Characters::new(texture_width, texture_height, texture_columns);
 
-    let store = ComponentStore::default();
-
-    let mut game = Game::new(
-        ascii_path,
-        window_width,
-        window_height,
-        sdl_data,
-        tiles,
-        store,
-    );
+    let mut game =
+        Game::new(ascii_path, window_width, window_height, sdl_data, tiles);
 
     game.run();
 }
