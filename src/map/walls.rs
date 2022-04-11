@@ -47,7 +47,13 @@ impl Walls {
     pub fn new(map_width: u32, map_height: u32) -> Self {
         let size: usize = map_width as usize * map_height as usize;
 
-        let map: Vec<Tile> = vec![Tile::Wall; size];
+        let map: Vec<Tile> = vec![
+            Tile {
+                wall: true,
+                visited: false
+            };
+            size
+        ];
 
         Self {
             max_rooms: 30,
@@ -88,7 +94,7 @@ impl Walls {
             } else {
                 let (player_x, player_y) = room.center();
 
-                store.make_player(player_x, player_y);
+                store.make_player(player_x as i32, player_y as i32);
             }
 
             rooms.push(room);
@@ -102,7 +108,10 @@ impl Walls {
             for x in room.x1..=room.x2 {
                 let index = x + (y * self.map_width);
 
-                self.map[index as usize] = Tile::Floor;
+                self.map[index as usize] = Tile {
+                    wall: false,
+                    visited: false,
+                };
             }
         }
     }
@@ -129,7 +138,10 @@ impl Walls {
         for x in min_x..=max_x {
             let index = x + (sy * self.map_width);
 
-            self.map[index as usize] = Tile::Floor;
+            self.map[index as usize] = Tile {
+                wall: false,
+                visited: false,
+            };
         }
 
         let min_y = min(p_y, c_y);
@@ -138,7 +150,10 @@ impl Walls {
         for y in min_y..=max_y {
             let index = sx + (y * self.map_width);
 
-            self.map[index as usize] = Tile::Floor;
+            self.map[index as usize] = Tile {
+                wall: false,
+                visited: false,
+            };
         }
     }
 }

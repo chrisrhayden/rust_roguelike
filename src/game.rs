@@ -7,13 +7,14 @@ use crate::{
     characters::Characters,
     components::store::ComponentStore,
     fov::shadow_casting::shadow_casting,
-    map::map_data::{MapData, MapType, Tile, ViewTile},
+    map::map_data::{MapData, MapType, ViewTile},
     sdl::SDLData,
+    system::player::move_player,
 };
 
 #[allow(dead_code)]
 enum Action {
-    Move,
+    Move(i32, i32),
     OpenMenu,
     Quit,
     Nothing,
@@ -65,7 +66,8 @@ impl Game {
         let map_height = self.window_height / self.characters.height;
 
         let mut store = ComponentStore::default();
-        let map =
+
+        let mut map =
             MapData::new(&mut store, map_width, map_height, MapType::Walls);
 
         let mut evt_pump = self
@@ -83,7 +85,10 @@ impl Game {
             self.state = match self.state {
                 GameLoopState::PlayerRun => {
                     match self.handle_evt(&mut evt_pump) {
-                        Action::Move => GameLoopState::WorldRun,
+                        Action::Move(x, y) => {
+                            move_player(x, y, &map, &mut store);
+                            GameLoopState::WorldRun
+                        }
                         Action::Nothing => GameLoopState::PlayerRun,
                         Action::Quit => break,
                         _ => GameLoopState::PlayerRun,
@@ -95,7 +100,7 @@ impl Game {
             self.sdl_data.canvas.clear();
 
             let view_map = self.tick(&store, &map);
-            self.paint_map(&mut texture, &store, &map, &view_map);
+            self.paint_map(&mut texture, &store, &mut map, &view_map);
 
             self.sdl_data.canvas.present();
 
@@ -117,7 +122,19 @@ impl Game {
                 Event::KeyDown {
                     keycode: Some(Keycode::Left),
                     ..
-                } => return Action::Move,
+                } => return Action::Move(-1, 0),
+                Event::KeyDown {
+                    keycode: Some(Keycode::Right),
+                    ..
+                } => return Action::Move(1, 0),
+                Event::KeyDown {
+                    keycode: Some(Keycode::Up),
+                    ..
+                } => return Action::Move(0, -1),
+                Event::KeyDown {
+                    keycode: Some(Keycode::Down),
+                    ..
+                } => return Action::Move(0, 1),
                 _ => {}
             }
         }
@@ -129,7 +146,7 @@ impl Game {
         let mut view_map = Vec::with_capacity(map.tiles.len());
 
         for t in &map.tiles {
-            if *t == Tile::Wall {
+            if t.wall {
                 view_map.push(ViewTile {
                     blocked: true,
                     visible: false,
@@ -143,7 +160,7 @@ impl Game {
         }
 
         for (_, r) in store.repr.iter() {
-            let index = r.x + (r.y * map.map_width);
+            let index = r.x + (r.y * map.map_width as i32);
 
             view_map[index as usize].blocked = true;
         }
@@ -167,7 +184,7 @@ impl Game {
         &mut self,
         texture: &mut Texture,
         store: &ComponentStore,
-        map: &MapData,
+        map: &mut MapData,
         view_map: &[ViewTile],
     ) {
         println!("paint map");
@@ -178,7 +195,7 @@ impl Game {
         let mut y: i32 = 0;
 
         let mut current_column = 1;
-        for (i, t) in map.tiles.iter().enumerate() {
+        for (i, t) in map.tiles.iter_mut().enumerate() {
             let brush = Rect::new(x, y, char_w, char_h);
 
             // let c = match *t {
@@ -187,21 +204,20 @@ impl Game {
             // };
             //
             // let to_paint = self.characters.get_rect(c);
-            let (to_paint, color) = if view_map[i].visible {
-                let c = match *t {
-                    Tile::Wall => '#',
-                    Tile::Floor => ' ',
-                };
 
+            let (to_paint, color) = if view_map[i].visible {
+                let c = if t.wall { '#' } else { '.' };
+                t.visited = true;
+                (self.characters.get_rect(c), (0, 190, 190))
+            } else if t.visited {
+                let c = if t.wall { '#' } else { '.' };
+                t.visited = true;
                 (self.characters.get_rect(c), (190, 190, 190))
             } else {
-                (self.characters.get_rect('.'), (0, 0, 0))
+                (self.characters.get_rect(' '), (0, 0, 0))
             };
 
-            self.sdl_data
-                .canvas
-                .set_draw_color(Color::RGB(color.0, color.1, color.2));
-
+            texture.set_color_mod(color.0, color.1, color.2);
             self.sdl_data
                 .canvas
                 .copy(texture, Some(to_paint), Some(brush))
@@ -220,11 +236,12 @@ impl Game {
         for (_id, repr) in store.repr.iter() {
             let to_paint = self.characters.get_rect(repr.repr);
 
-            let x = (repr.x * char_w) as i32;
-            let y = (repr.y * char_h) as i32;
+            let x = repr.x * char_w as i32;
+            let y = repr.y * char_h as i32;
 
             let brush = Rect::new(x, y, char_w, char_h);
 
+            texture.set_color_mod(0, 190, 190);
             self.sdl_data
                 .canvas
                 .copy(texture, Some(to_paint), Some(brush))

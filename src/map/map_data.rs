@@ -1,9 +1,9 @@
 use crate::{components::store::ComponentStore, map::walls::Walls};
 
 #[derive(Clone, PartialEq, Eq)]
-pub enum Tile {
-    Wall,
-    Floor,
+pub struct Tile {
+    pub wall: bool,
+    pub visited: bool,
 }
 
 pub struct ViewTile {

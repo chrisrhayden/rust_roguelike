@@ -4,13 +4,6 @@
 ///
 use crate::map::map_data::ViewTile;
 
-// const MULTIPLIERS: [[i32; 8]; 4] = [
-//     [1, 0, 0, -1, -1, 0, 0, 1],
-//     [0, 1, -1, 0, 0, -1, 1, 0],
-//     [0, 1, 1, 0, 0, -1, -1, 0],
-//     [1, 0, 0, 1, -1, 0, 0, -1],
-// ];
-
 const MULTIPLIERS: [[i32; 4]; 8] = [
     [1, 0, 0, 1],
     [0, 1, 1, 0],
@@ -42,8 +35,8 @@ pub fn shadow_casting(
     tile_map: &mut [ViewTile],
     width: u32,
     height: u32,
-    start_x: u32,
-    start_y: u32,
+    start_x: i32,
+    start_y: i32,
     radius: u32,
 ) {
     let s_data = ShadowcastData {
@@ -86,9 +79,7 @@ fn cast_light(tile_map: &mut [ViewTile], mut s_data: ShadowcastData) {
 
     while distance <= s_data.radius && !blocked {
         let delta_y = -distance;
-        // let mut delta_x = -distance;
 
-        // while delta_x <= 0 {
         for delta_x in -distance..=0 {
             let current_x: i32 =
                 s_data.start_x + delta_x * s_data.xx + delta_y * s_data.xy;
@@ -134,8 +125,6 @@ fn cast_light(tile_map: &mut [ViewTile], mut s_data: ShadowcastData) {
 
                 new_start = slope_r;
             }
-
-            // delta_x += 1;
         }
 
         distance += 1;
