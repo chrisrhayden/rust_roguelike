@@ -6,6 +6,7 @@ use sdl2::{
 use crate::{
     characters::Characters,
     components::store::ComponentStore,
+    fov::shadow_casting::shadow_casting,
     map::map_data::{MapData, MapType, Tile, ViewTile},
     sdl::SDLData,
 };
@@ -56,7 +57,7 @@ impl Game {
         let _img_context =
             sdl2::image::init(sdl2::image::InitFlag::PNG).unwrap();
         let texture_creator = self.sdl_data.canvas.texture_creator();
-        let texture = texture_creator
+        let mut texture = texture_creator
             .load_texture(&self.texture_path)
             .expect("cant load path");
 
@@ -93,8 +94,8 @@ impl Game {
 
             self.sdl_data.canvas.clear();
 
-            self.tick(&map);
-            self.paint_map(&texture, &store, &map);
+            let view_map = self.tick(&store, &map);
+            self.paint_map(&mut texture, &store, &map, &view_map);
 
             self.sdl_data.canvas.present();
 
@@ -124,7 +125,7 @@ impl Game {
         Action::Nothing
     }
 
-    fn tick(&mut self, map: &MapData) {
+    fn tick(&mut self, store: &ComponentStore, map: &MapData) -> Vec<ViewTile> {
         let mut view_map = Vec::with_capacity(map.tiles.len());
 
         for t in &map.tiles {
@@ -140,14 +141,36 @@ impl Game {
                 });
             }
         }
+
+        for (_, r) in store.repr.iter() {
+            let index = r.x + (r.y * map.map_width);
+
+            view_map[index as usize].blocked = true;
+        }
+
+        let player = store.repr.get(&1).unwrap();
+        println!("player x: {} y: {} ", player.x, player.y);
+
+        shadow_casting(
+            &mut view_map,
+            map.map_width,
+            map.map_height,
+            player.x,
+            player.y,
+            20,
+        );
+
+        view_map
     }
 
     fn paint_map(
         &mut self,
-        texture: &Texture,
+        texture: &mut Texture,
         store: &ComponentStore,
         map: &MapData,
+        view_map: &[ViewTile],
     ) {
+        println!("paint map");
         let char_w = self.characters.width;
         let char_h = self.characters.height;
 
@@ -155,15 +178,29 @@ impl Game {
         let mut y: i32 = 0;
 
         let mut current_column = 1;
-        for t in &map.tiles {
+        for (i, t) in map.tiles.iter().enumerate() {
             let brush = Rect::new(x, y, char_w, char_h);
 
-            let c = match *t {
-                Tile::Wall => '#',
-                Tile::Floor => ' ',
+            // let c = match *t {
+            //     Tile::Wall => '#',
+            //     Tile::Floor => ' ',
+            // };
+            //
+            // let to_paint = self.characters.get_rect(c);
+            let (to_paint, color) = if view_map[i].visible {
+                let c = match *t {
+                    Tile::Wall => '#',
+                    Tile::Floor => ' ',
+                };
+
+                (self.characters.get_rect(c), (190, 190, 190))
+            } else {
+                (self.characters.get_rect('.'), (0, 0, 0))
             };
 
-            let to_paint = self.characters.get_rect(c);
+            self.sdl_data
+                .canvas
+                .set_draw_color(Color::RGB(color.0, color.1, color.2));
 
             self.sdl_data
                 .canvas

@@ -74,7 +74,7 @@ pub fn shadow_casting(
 }
 
 fn cast_light(tile_map: &mut [ViewTile], mut s_data: ShadowcastData) {
-    let mut new_start = 0.0;
+    let mut new_start: f32 = 0.0;
 
     if s_data.start_slope < s_data.end_slope {
         return;
@@ -86,12 +86,13 @@ fn cast_light(tile_map: &mut [ViewTile], mut s_data: ShadowcastData) {
 
     while distance <= s_data.radius && !blocked {
         let delta_y = -distance;
-        let mut delta_x = -distance;
+        // let mut delta_x = -distance;
 
-        while delta_x <= 0 && !blocked {
-            let current_x =
+        // while delta_x <= 0 {
+        for delta_x in -distance..=0 {
+            let current_x: i32 =
                 s_data.start_x + delta_x * s_data.xx + delta_y * s_data.xy;
-            let current_y =
+            let current_y: i32 =
                 s_data.start_y + delta_x * s_data.yx + delta_y * s_data.yy;
             let slope_l = (delta_x as f32 - 0.5) / (delta_y as f32 + 0.5);
             let slope_r = (delta_x as f32 + 0.5) / (delta_y as f32 - 0.5);
@@ -100,16 +101,17 @@ fn cast_light(tile_map: &mut [ViewTile], mut s_data: ShadowcastData) {
                 && current_y >= 0
                 && current_x < s_data.width
                 && current_y < s_data.height)
-                && s_data.start_slope < slope_r
+                || s_data.start_slope < slope_r
             {
                 continue;
             } else if s_data.end_slope > slope_l {
                 break;
             }
 
-            let index = (current_x + (current_y + s_data.width)) as usize;
+            let index = (current_x + (current_y * s_data.width)) as usize;
 
             if delta_x < s_data.radius && delta_y < s_data.radius {
+                println!("visible cx: {} cy: {}", current_x, current_y);
                 tile_map[index].visible = true;
             }
 
@@ -133,7 +135,7 @@ fn cast_light(tile_map: &mut [ViewTile], mut s_data: ShadowcastData) {
                 new_start = slope_r;
             }
 
-            delta_x += 1;
+            // delta_x += 1;
         }
 
         distance += 1;
