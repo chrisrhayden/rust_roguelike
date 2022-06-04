@@ -2,6 +2,8 @@ use std::{cell::RefCell, error::Error, rc::Rc};
 
 use crate::{components::size::Size, game_map::GameMap};
 
+type CellVec<T> = Vec<Rc<RefCell<T>>>;
+
 const ADJACENT_SQUARES: [(isize, isize); 8] = [
     (0, -1),
     (0, 1),
@@ -63,7 +65,7 @@ fn make_path(start_node: Rc<RefCell<Node>>) -> Vec<(isize, isize)> {
 
 // this is bad lol
 pub fn astar(
-    game_map: &GameMap,
+    map: &Vec<En>,
     start: (isize, isize),
     end: (isize, isize),
 ) -> Result<Option<Vec<(isize, isize)>>, Box<dyn Error>> {
@@ -77,11 +79,11 @@ pub fn astar(
     let end_node = Node::new(None, end);
     let end_node = Rc::new(RefCell::new(end_node));
 
-    let mut open_list: Vec<Rc<RefCell<Node>>> = vec![];
+    let mut open_list: CellVec<Node> = vec![];
 
     open_list.push(start_node);
 
-    let mut closed_list: Vec<Rc<RefCell<Node>>> = vec![];
+    let mut closed_list: CellVec<Node> = vec![];
 
     let mut outer_i = 0;
     // loop till we find the end
