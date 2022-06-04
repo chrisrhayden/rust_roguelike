@@ -2,37 +2,12 @@ use std::cmp::{max, min};
 
 use rand::{prelude::*, thread_rng, Rng};
 
-use crate::{components::store::ComponentStore, map::map_data::Tile};
+use crate::{
+    components::store::ComponentStore, feature_gen::FeatureGen,
+    map::map_data::Tile,
+};
 
-#[derive(Debug)]
-struct Room {
-    x1: u32,
-    y1: u32,
-    x2: u32,
-    y2: u32,
-}
-
-impl Room {
-    fn new(x1: u32, y1: u32, width: u32, height: u32) -> Self {
-        Self {
-            x1,
-            y1,
-            x2: x1 + width,
-            y2: y1 + height,
-        }
-    }
-
-    fn intersects(&self, other: &Room) -> bool {
-        (self.x1 <= other.x2)
-            && (self.x2 >= other.x1)
-            && (self.y1 <= other.y2)
-            && (self.y2 >= other.y1)
-    }
-
-    fn center(&self) -> (u32, u32) {
-        ((self.x1 + self.x2) / 2, (self.y1 + self.y2) / 2)
-    }
-}
+use super::map_data::MapRect;
 
 pub struct Walls {
     max_rooms: u32,
@@ -65,10 +40,31 @@ impl Walls {
         }
     }
 
-    pub fn gen(mut self, store: &mut ComponentStore) -> Vec<Tile> {
+    pub fn gen(
+        mut self,
+        feature_gen: &FeatureGen,
+        store: &mut ComponentStore,
+    ) -> Vec<Tile> {
         let mut rng = thread_rng();
 
-        let mut rooms: Vec<Room> = Vec::new();
+        let mut rooms: Vec<MapRect> = Vec::new();
+
+        let room_width = rng.gen_range(self.min_room_size..=self.max_room_size);
+        let room_height =
+            rng.gen_range(self.min_room_size..=self.max_room_size);
+
+        let x = rng.gen_range(1..(self.map_width - room_width - 1));
+        let y = rng.gen_range(1..(self.map_height - room_height - 1));
+
+        let room = MapRect::new(x, y, room_width, room_height);
+
+        let (player_x, player_y) = room.center();
+
+        store.make_player(player_x as i32, player_y as i32);
+
+        self.carve_out_room(&room);
+
+        rooms.push(room);
 
         'make_rooms: for _ in 0..self.max_rooms {
             let room_width =
@@ -79,7 +75,7 @@ impl Walls {
             let x = rng.gen_range(1..(self.map_width - room_width - 1));
             let y = rng.gen_range(1..(self.map_height - room_height - 1));
 
-            let room = Room::new(x, y, room_width, room_height);
+            let room = MapRect::new(x, y, room_width, room_height);
 
             for r in &rooms {
                 if r.intersects(&room) {
@@ -87,15 +83,12 @@ impl Walls {
                 }
             }
 
+            feature_gen.gen_enemys(&mut rng, &room, store);
+
             self.carve_out_room(&room);
 
-            if let Some(last_room) = rooms.last() {
-                self.carve_out_hallway(&mut rng, last_room, &room);
-            } else {
-                let (player_x, player_y) = room.center();
-
-                store.make_player(player_x as i32, player_y as i32);
-            }
+            let last_room = rooms.last().unwrap();
+            self.carve_out_hallway(&mut rng, &room, last_room);
 
             rooms.push(room);
         }
@@ -103,7 +96,7 @@ impl Walls {
         self.map
     }
 
-    fn carve_out_room(&mut self, room: &Room) {
+    fn carve_out_room(&mut self, room: &MapRect) {
         for y in room.y1..=room.y2 {
             for x in room.x1..=room.x2 {
                 let index = x + (y * self.map_width);
@@ -119,8 +112,8 @@ impl Walls {
     fn carve_out_hallway(
         &mut self,
         rng: &mut ThreadRng,
-        past_room: &Room,
-        room: &Room,
+        room: &MapRect,
+        past_room: &MapRect,
     ) {
         let (c_x, c_y) = room.center();
         let (p_x, p_y) = past_room.center();

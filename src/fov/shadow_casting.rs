@@ -102,7 +102,6 @@ fn cast_light(tile_map: &mut [ViewTile], mut s_data: ShadowcastData) {
             let index = (current_x + (current_y * s_data.width)) as usize;
 
             if delta_x < s_data.radius && delta_y < s_data.radius {
-                println!("visible cx: {} cy: {}", current_x, current_y);
                 tile_map[index].visible = true;
             }
 

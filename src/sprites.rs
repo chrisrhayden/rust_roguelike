@@ -14,13 +14,13 @@ const CHARS: &[char; 154] = &[
     'w', 'x', 'y', 'z',
 ];
 
-pub struct Characters {
+pub struct Sprites {
     pub width: u32,
     pub height: u32,
     char_recs: Vec<Rect>,
 }
 
-impl Characters {
+impl Sprites {
     pub fn new(width: u32, height: u32, column: usize) -> Self {
         let mut char_recs = Vec::new();
 

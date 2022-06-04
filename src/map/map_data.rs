@@ -1,4 +1,37 @@
-use crate::{components::store::ComponentStore, map::walls::Walls};
+use crate::{
+    components::store::ComponentStore, feature_gen::FeatureGen,
+    map::walls::Walls,
+};
+
+#[derive(Debug)]
+pub struct MapRect {
+    pub x1: u32,
+    pub y1: u32,
+    pub x2: u32,
+    pub y2: u32,
+}
+
+impl MapRect {
+    pub fn new(x1: u32, y1: u32, width: u32, height: u32) -> Self {
+        Self {
+            x1,
+            y1,
+            x2: x1 + width,
+            y2: y1 + height,
+        }
+    }
+
+    pub fn intersects(&self, other: &MapRect) -> bool {
+        (self.x1 <= other.x2)
+            && (self.x2 >= other.x1)
+            && (self.y1 <= other.y2)
+            && (self.y2 >= other.y1)
+    }
+
+    pub fn center(&self) -> (u32, u32) {
+        ((self.x1 + self.x2) / 2, (self.y1 + self.y2) / 2)
+    }
+}
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Tile {
@@ -32,9 +65,10 @@ impl MapData {
     ) -> Self {
         let tiles = match map_type {
             MapType::Walls => {
+                let feature_gen = FeatureGen { level: 1 };
                 let wall_data = Walls::new(map_width, map_height);
 
-                wall_data.gen(store)
+                wall_data.gen(&feature_gen, store)
             }
             _ => {
                 panic!("{:?} is not implemented", map_type);

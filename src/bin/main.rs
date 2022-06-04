@@ -1,7 +1,4 @@
-use rust_roguelike::{
-    characters::Characters, components::store::ComponentStore, game::Game,
-    sdl::SDLData,
-};
+use rust_roguelike::{game::Game, sdl::SDLData, sprites::Sprites};
 
 fn main() {
     let ascii_path = "./assets/dejavu10x10_gs_tc.png";
@@ -15,7 +12,7 @@ fn main() {
     let sdl_data = SDLData::new(window_width, window_height);
 
     // TODO: rename to sprites
-    let tiles = Characters::new(texture_width, texture_height, texture_columns);
+    let tiles = Sprites::new(texture_width, texture_height, texture_columns);
 
     let mut game =
         Game::new(ascii_path, window_width, window_height, sdl_data, tiles);

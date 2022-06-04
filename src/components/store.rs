@@ -6,7 +6,7 @@ use crate::components::{
 
 #[derive(Default)]
 pub struct ComponentStore {
-    pub player: u32,
+    player: u32,
     entities: Entities,
     pub stats: HashMap<u32, Stats>,
     pub repr: HashMap<u32, Repr>,
@@ -21,5 +21,13 @@ impl ComponentStore {
 
         self.repr.insert(id, Repr { repr: '@', x, y });
         self.size.insert(id, Size::Medium);
+    }
+
+    pub fn get_player(&self) -> u32 {
+        self.player
+    }
+
+    pub fn make_entity(&mut self) -> u32 {
+        self.entities.new_entity()
     }
 }

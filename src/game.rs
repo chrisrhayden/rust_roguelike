@@ -1,19 +1,16 @@
-use sdl2::{
-    event::Event, image::LoadTexture, keyboard::Keycode, pixels::Color,
-    rect::Rect, render::Texture, EventPump,
-};
+use sdl2::{image::LoadTexture, pixels::Color, rect::Rect, render::Texture};
 
 use crate::{
-    characters::Characters,
     components::store::ComponentStore,
     fov::shadow_casting::shadow_casting,
     map::map_data::{MapData, MapType, ViewTile},
     sdl::SDLData,
-    system::player::move_player,
+    sprites::Sprites,
+    system::player::{handle_evt, move_player},
 };
 
 #[allow(dead_code)]
-enum Action {
+pub enum Action {
     Move(i32, i32),
     OpenMenu,
     Quit,
@@ -29,7 +26,7 @@ pub struct Game {
     window_width: u32,
     window_height: u32,
     state: GameLoopState,
-    characters: Characters,
+    sprites: Sprites,
     sdl_data: SDLData,
     texture_path: String,
 }
@@ -40,13 +37,13 @@ impl Game {
         window_width: u32,
         window_height: u32,
         sdl_data: SDLData,
-        characters: Characters,
+        characters: Sprites,
     ) -> Self {
         Game {
             window_width,
             window_height,
             sdl_data,
-            characters,
+            sprites: characters,
             state: GameLoopState::PlayerRun,
             texture_path: texture_path.into(),
         }
@@ -62,13 +59,22 @@ impl Game {
             .load_texture(&self.texture_path)
             .expect("cant load path");
 
-        let map_width = self.window_width / self.characters.width;
-        let map_height = self.window_height / self.characters.height;
+        let map_width = self.window_width / self.sprites.width;
+        let map_height = self.window_height / self.sprites.height;
 
         let mut store = ComponentStore::default();
 
         let mut map =
             MapData::new(&mut store, map_width, map_height, MapType::Walls);
+
+        let mut view_map: Vec<ViewTile> = Vec::with_capacity(map.tiles.len());
+
+        for _ in 0..map.tiles.len() {
+            view_map.push(ViewTile {
+                blocked: false,
+                visible: false,
+            });
+        }
 
         let mut evt_pump = self
             .sdl_data
@@ -76,30 +82,29 @@ impl Game {
             .event_pump()
             .expect("cant build event pump");
 
-        self.sdl_data.canvas.set_draw_color(Color::RGB(0, 255, 255));
+        self.sdl_data.canvas.set_draw_color(Color::RGB(0, 0, 0));
         self.sdl_data.canvas.clear();
 
         self.sdl_data.canvas.present();
 
         loop {
             self.state = match self.state {
-                GameLoopState::PlayerRun => {
-                    match self.handle_evt(&mut evt_pump) {
-                        Action::Move(x, y) => {
-                            move_player(x, y, &map, &mut store);
-                            GameLoopState::WorldRun
-                        }
-                        Action::Nothing => GameLoopState::PlayerRun,
-                        Action::Quit => break,
-                        _ => GameLoopState::PlayerRun,
+                GameLoopState::PlayerRun => match handle_evt(&mut evt_pump) {
+                    Action::Move(x, y) => {
+                        move_player(x, y, &map, &mut store);
+                        GameLoopState::WorldRun
                     }
-                }
+                    Action::Nothing => GameLoopState::PlayerRun,
+                    Action::Quit => break,
+                    _ => GameLoopState::PlayerRun,
+                },
                 GameLoopState::WorldRun => GameLoopState::PlayerRun,
             };
 
             self.sdl_data.canvas.clear();
 
-            let view_map = self.tick(&store, &map);
+            self.tick(&store, &map, &mut view_map);
+
             self.paint_map(&mut texture, &store, &mut map, &view_map);
 
             self.sdl_data.canvas.present();
@@ -111,73 +116,38 @@ impl Game {
         }
     }
 
-    fn handle_evt(&self, evt_pump: &mut EventPump) -> Action {
-        for event in evt_pump.poll_iter() {
-            match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => return Action::Quit,
-                Event::KeyDown {
-                    keycode: Some(Keycode::Left),
-                    ..
-                } => return Action::Move(-1, 0),
-                Event::KeyDown {
-                    keycode: Some(Keycode::Right),
-                    ..
-                } => return Action::Move(1, 0),
-                Event::KeyDown {
-                    keycode: Some(Keycode::Up),
-                    ..
-                } => return Action::Move(0, -1),
-                Event::KeyDown {
-                    keycode: Some(Keycode::Down),
-                    ..
-                } => return Action::Move(0, 1),
-                _ => {}
-            }
-        }
-
-        Action::Nothing
-    }
-
-    fn tick(&mut self, store: &ComponentStore, map: &MapData) -> Vec<ViewTile> {
-        let mut view_map = Vec::with_capacity(map.tiles.len());
-
-        for t in &map.tiles {
+    fn tick(
+        &mut self,
+        store: &ComponentStore,
+        map: &MapData,
+        view_map: &mut [ViewTile],
+    ) {
+        for (i, t) in map.tiles.iter().enumerate() {
             if t.wall {
-                view_map.push(ViewTile {
-                    blocked: true,
-                    visible: false,
-                });
+                view_map[i].blocked = true;
+                view_map[i].visible = false;
             } else {
-                view_map.push(ViewTile {
-                    blocked: false,
-                    visible: false,
-                });
+                view_map[i].blocked = false;
+                view_map[i].visible = false;
             }
         }
 
-        for (_, r) in store.repr.iter() {
+        for r in store.repr.values() {
             let index = r.x + (r.y * map.map_width as i32);
 
             view_map[index as usize].blocked = true;
         }
 
-        let player = store.repr.get(&1).unwrap();
-        println!("player x: {} y: {} ", player.x, player.y);
+        let player = store.repr.get(&store.get_player()).unwrap();
 
         shadow_casting(
-            &mut view_map,
+            view_map,
             map.map_width,
             map.map_height,
             player.x,
             player.y,
-            20,
+            5,
         );
-
-        view_map
     }
 
     fn paint_map(
@@ -187,9 +157,8 @@ impl Game {
         map: &mut MapData,
         view_map: &[ViewTile],
     ) {
-        println!("paint map");
-        let char_w = self.characters.width;
-        let char_h = self.characters.height;
+        let char_w = self.sprites.width;
+        let char_h = self.sprites.height;
 
         let mut x: i32 = 0;
         let mut y: i32 = 0;
@@ -198,23 +167,16 @@ impl Game {
         for (i, t) in map.tiles.iter_mut().enumerate() {
             let brush = Rect::new(x, y, char_w, char_h);
 
-            // let c = match *t {
-            //     Tile::Wall => '#',
-            //     Tile::Floor => ' ',
-            // };
-            //
-            // let to_paint = self.characters.get_rect(c);
+            let c = if t.wall { '#' } else { '.' };
 
             let (to_paint, color) = if view_map[i].visible {
-                let c = if t.wall { '#' } else { '.' };
                 t.visited = true;
-                (self.characters.get_rect(c), (0, 190, 190))
+                (self.sprites.get_rect(c), (0, 190, 190))
             } else if t.visited {
-                let c = if t.wall { '#' } else { '.' };
                 t.visited = true;
-                (self.characters.get_rect(c), (190, 190, 190))
+                (self.sprites.get_rect(c), (93, 93, 93))
             } else {
-                (self.characters.get_rect(' '), (0, 0, 0))
+                (self.sprites.get_rect(' '), (0, 0, 0))
             };
 
             texture.set_color_mod(color.0, color.1, color.2);
@@ -233,8 +195,16 @@ impl Game {
             }
         }
 
-        for (_id, repr) in store.repr.iter() {
-            let to_paint = self.characters.get_rect(repr.repr);
+        let player_id = store.get_player();
+
+        for (id, repr) in store.repr.iter() {
+            let index = (repr.x + (repr.y * map.map_width as i32)) as usize;
+
+            if !view_map[index].visible && *id != player_id {
+                continue;
+            }
+
+            let to_paint = self.sprites.get_rect(repr.repr);
 
             let x = repr.x * char_w as i32;
             let y = repr.y * char_h as i32;
