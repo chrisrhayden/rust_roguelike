@@ -1,3 +1,4 @@
+pub mod astar;
 pub mod components;
 pub mod feature_gen;
 pub mod fov;
